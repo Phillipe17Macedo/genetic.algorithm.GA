@@ -8,6 +8,7 @@ class AlgoritmoGenetico {
     this.taxaCrossover = 0.8; // Taxa padrão
     this.taxaMutacao = 0.1; // Taxa padrão
     this.metodoCrossover = "corte"; // Padrão: corte único
+    this.logs = [];
   }
 
   gerarIndividuo() {
@@ -20,34 +21,47 @@ class AlgoritmoGenetico {
   }
 
   calcularAptidao(individuo) {
-    const mapeamento = this.letras.reduce((map, letra, i) => {
-      map[letra] = individuo[i];
-      return map;
-    }, {});
+    try {
+      const mapeamento = this.letras.reduce((map, letra, i) => {
+        map[letra] = individuo[i];
+        return map;
+      }, {});
 
-    const calcularLado = (lado) =>
-      lado.match(/[A-Z]+/g).reduce(
-        (soma, palavra) =>
-          soma +
-          Number(
-            palavra
-              .split("")
-              .map((l) => mapeamento[l])
-              .join("")
-          ),
-        0
+      const calcularLado = (lado) =>
+        lado.match(/[A-Z]+/g).reduce(
+          (soma, palavra) =>
+            soma +
+            Number(
+              palavra
+                .split("")
+                .map((l) => mapeamento[l])
+                .join("")
+            ),
+          0
+        );
+
+      const [ladoEsquerdo, ladoDireito] = this.problema.split("=");
+      const valorEsquerdo = calcularLado(ladoEsquerdo);
+      const valorDireito = Number(
+        ladoDireito
+          .split("")
+          .map((l) => mapeamento[l])
+          .join("")
       );
 
-    const [ladoEsquerdo, ladoDireito] = this.problema.split("=");
-    const valorEsquerdo = calcularLado(ladoEsquerdo);
-    const valorDireito = Number(
-      ladoDireito
-        .split("")
-        .map((l) => mapeamento[l])
-        .join("")
-    );
+      return Math.abs(valorEsquerdo - valorDireito);
+    } catch (error) {
+      console.error("Erro ao calcular aptidão:", error);
+      return Infinity;
+    }
+  }
 
-    return Math.abs(valorEsquerdo - valorDireito);
+  logIteracao(geracao, melhorIndividuo) {
+    this.logs.push({
+      geracao,
+      melhorIndividuo: melhorIndividuo.individuo.join(", "),
+      aptidao: melhorIndividuo.aptidao,
+    });
   }
 
   inicializarPopulacao() {
@@ -71,15 +85,17 @@ class AlgoritmoGenetico {
   }
 
   cruzar(pai1, pai2) {
-    if (this.metodoCrossover === "corte") {
-      const pontoCorte = Math.floor(Math.random() * pai1.length);
-      return [
-        pai1.slice(0, pontoCorte).concat(pai2.slice(pontoCorte)),
-        pai2.slice(0, pontoCorte).concat(pai1.slice(pontoCorte)),
-      ];
+    if (this.metodoCrossover === "pmx") {
+      return this.pmx(pai1, pai2);
+    } else if (this.metodoCrossover === "ciclico") {
+      return this.ciclico(pai1, pai2);
     }
-    // Outros métodos podem ser adicionados aqui
-    return [pai1, pai2];
+    // Corte único (padrão)
+    const pontoCorte = Math.floor(Math.random() * pai1.length);
+    return [
+      pai1.slice(0, pontoCorte).concat(pai2.slice(pontoCorte)),
+      pai2.slice(0, pontoCorte).concat(pai1.slice(pontoCorte)),
+    ];
   }
 
   mutar(individuo) {
@@ -122,6 +138,7 @@ class AlgoritmoGenetico {
         });
       }
       this.reinserirPopulacao(novaPopulacao);
+      this.logIteracao(geracao, this.populacao[0]);
     }
     return this.populacao[0];
   }
@@ -129,12 +146,33 @@ class AlgoritmoGenetico {
 
 document.getElementById("resolver").addEventListener("click", () => {
   const problema = document.getElementById("problema").value;
+  const taxaCrossover =
+    parseFloat(document.getElementById("taxaCrossover").value) / 100;
+  const taxaMutacao =
+    parseFloat(document.getElementById("taxaMutacao").value) / 100;
+  const selecao = document.getElementById("selecao").value;
+  const crossover = document.getElementById("crossover").value;
+  const reinsercao = document.getElementById("reinsercao").value;
+
   const ag = new AlgoritmoGenetico(100, 50, problema);
+  ag.taxaCrossover = taxaCrossover;
+  ag.taxaMutacao = taxaMutacao;
+  ag.metodoCrossover = crossover;
+  ag.metodoSelecao = selecao;
+  ag.metodoReinsercao = reinsercao;
+
   const melhor = ag.executar();
 
-  // Exibe o resultado
   const solucao = document.getElementById("solucao");
   solucao.innerHTML = `Melhor solução encontrada:<br>
     Indivíduo: ${melhor.individuo.join(", ")}<br>
     Aptidão: ${melhor.aptidao}`;
+
+  const logDetalhes = document.getElementById("logDetalhes");
+  logDetalhes.textContent = ag.logs
+    .map(
+      (log) =>
+        `Geração ${log.geracao}: Melhor Indivíduo - [${log.melhorIndividuo}], Aptidão - ${log.aptidao}`
+    )
+    .join("\n");
 });
