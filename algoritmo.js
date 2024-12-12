@@ -12,28 +12,39 @@ class AlgoritmoGenetico {
 
   gerarIndividuo() {
     const digitos = Array.from({ length: 10 }, (_, i) => i);
-    return digitos.sort(() => Math.random() - 0.5);
+    for (let i = digitos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [digitos[i], digitos[j]] = [digitos[j], digitos[i]];
+    }
+    return digitos;
   }
 
   calcularAptidao(individuo) {
-    const mapeamento = {};
-    this.letras.forEach((letra, i) => {
-      mapeamento[letra] = individuo[i];
-    });
+    const mapeamento = this.letras.reduce((map, letra, i) => {
+      map[letra] = individuo[i];
+      return map;
+    }, {});
+
+    const calcularLado = (lado) =>
+      lado.match(/[A-Z]+/g).reduce(
+        (soma, palavra) =>
+          soma +
+          Number(
+            palavra
+              .split("")
+              .map((l) => mapeamento[l])
+              .join("")
+          ),
+        0
+      );
 
     const [ladoEsquerdo, ladoDireito] = this.problema.split("=");
-    const calcularLado = (lado) =>
-      lado
-        .match(/[A-Z]+/g)
-        .reduce(
-          (soma, palavra) =>
-            soma + parseInt([...palavra].map((l) => mapeamento[l]).join("")),
-          0
-        );
-
     const valorEsquerdo = calcularLado(ladoEsquerdo);
-    const valorDireito = parseInt(
-      [...ladoDireito].map((l) => mapeamento[l]).join("")
+    const valorDireito = Number(
+      ladoDireito
+        .split("")
+        .map((l) => mapeamento[l])
+        .join("")
     );
 
     return Math.abs(valorEsquerdo - valorDireito);
@@ -56,30 +67,35 @@ class AlgoritmoGenetico {
         this.populacao[Math.floor(Math.random() * this.tamanhoPopulacao)]
       );
     }
-    torneio.sort((a, b) => a.aptidao - b.aptidao);
-    return torneio[0];
+    return torneio.sort((a, b) => a.aptidao - b.aptidao)[0];
   }
 
   cruzar(pai1, pai2) {
     if (this.metodoCrossover === "corte") {
       const pontoCorte = Math.floor(Math.random() * pai1.length);
-      const filho1 = pai1.slice(0, pontoCorte).concat(pai2.slice(pontoCorte));
-      const filho2 = pai2.slice(0, pontoCorte).concat(pai1.slice(pontoCorte));
-      return [filho1, filho2];
-    } else {
-      // Implementação de outros métodos de crossover pode ser adicionada aqui
-      return [pai1, pai2]; // Retorna os pais se o método não for reconhecido
+      return [
+        pai1.slice(0, pontoCorte).concat(pai2.slice(pontoCorte)),
+        pai2.slice(0, pontoCorte).concat(pai1.slice(pontoCorte)),
+      ];
     }
+    // Outros métodos podem ser adicionados aqui
+    return [pai1, pai2];
   }
 
   mutar(individuo) {
     if (Math.random() < this.taxaMutacao) {
       const [pos1, pos2] = [
-        Math.floor(Math.random() * 10),
-        Math.floor(Math.random() * 10),
+        Math.floor(Math.random() * individuo.length),
+        Math.floor(Math.random() * individuo.length),
       ];
       [individuo[pos1], individuo[pos2]] = [individuo[pos2], individuo[pos1]];
     }
+  }
+
+  reinserirPopulacao(novaPopulacao) {
+    this.populacao = novaPopulacao
+      .sort((a, b) => a.aptidao - b.aptidao)
+      .slice(0, this.tamanhoPopulacao);
   }
 
   executar() {
@@ -105,7 +121,7 @@ class AlgoritmoGenetico {
           aptidao: this.calcularAptidao(filho2),
         });
       }
-      this.populacao = novaPopulacao;
+      this.reinserirPopulacao(novaPopulacao);
     }
     return this.populacao[0];
   }
@@ -119,6 +135,6 @@ document.getElementById("resolver").addEventListener("click", () => {
   // Exibe o resultado
   const solucao = document.getElementById("solucao");
   solucao.innerHTML = `Melhor solução encontrada:<br>
-    Indivíduo: ${melhor.individuo}<br>
+    Indivíduo: ${melhor.individuo.join(", ")}<br>
     Aptidão: ${melhor.aptidao}`;
 });
