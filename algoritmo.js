@@ -8,6 +8,7 @@ class AlgoritmoGenetico {
     this.taxaCrossover = 0.8; // Taxa padrão
     this.taxaMutacao = 0.1; // Taxa padrão
     this.metodoCrossover = "corte"; // Padrão: corte único
+    this.metodoReinsercao = "ordenada"; // Padrão: ordenada
     this.logs = [];
   }
 
@@ -56,12 +57,87 @@ class AlgoritmoGenetico {
     }
   }
 
-  logIteracao(geracao, melhorIndividuo) {
-    this.logs.push({
-      geracao,
-      melhorIndividuo: melhorIndividuo.individuo.join(", "),
-      aptidao: melhorIndividuo.aptidao,
-    });
+  pmx(pai1, pai2) {
+    const tamanho = pai1.length;
+    const ponto1 = Math.floor(Math.random() * tamanho);
+    const ponto2 = Math.floor(Math.random() * (tamanho - ponto1)) + ponto1;
+
+    const filho1 = new Array(tamanho).fill(null);
+    const filho2 = new Array(tamanho).fill(null);
+
+    // Copia os segmentos
+    for (let i = ponto1; i < ponto2; i++) {
+      filho1[i] = pai1[i];
+      filho2[i] = pai2[i];
+    }
+
+    const criarMapa = (segmento1, segmento2) => {
+      const mapa = new Map();
+      for (let i = 0; i < segmento1.length; i++) {
+        mapa.set(segmento1[i], segmento2[i]);
+      }
+      return mapa;
+    };
+
+    const mapa1 = criarMapa(
+      pai1.slice(ponto1, ponto2),
+      pai2.slice(ponto1, ponto2)
+    );
+    const mapa2 = criarMapa(
+      pai2.slice(ponto1, ponto2),
+      pai1.slice(ponto1, ponto2)
+    );
+
+    const resolverConflito = (gene, mapa) => {
+      while (mapa.has(gene)) {
+        gene = mapa.get(gene);
+      }
+      return gene;
+    };
+
+    // Preenche os filhos com os genes restantes
+    for (let i = 0; i < tamanho; i++) {
+      if (filho1[i] === null) {
+        filho1[i] = resolverConflito(pai2[i], mapa1);
+      }
+      if (filho2[i] === null) {
+        filho2[i] = resolverConflito(pai1[i], mapa2);
+      }
+    }
+
+    return [filho1, filho2];
+  }
+
+  ciclico(pai1, pai2) {
+    const tamanho = pai1.length;
+    const filho1 = new Array(tamanho).fill(null);
+    const filho2 = new Array(tamanho).fill(null);
+
+    const preencherCiclo = (paiA, paiB, filho) => {
+      let index = 0;
+      const ciclo = new Set();
+
+      // Identifica o ciclo
+      while (!ciclo.has(index)) {
+        ciclo.add(index);
+        filho[index] = paiA[index];
+        index = paiA.indexOf(paiB[index]);
+      }
+
+      return filho;
+    };
+
+    // Preenche os filhos com base nos ciclos
+    preencherCiclo(pai1, pai2, filho1);
+    preencherCiclo(pai2, pai1, filho2);
+
+    // Completa os genes restantes
+    for (let i = 0; i < tamanho; i++) {
+      if (filho1[i] === null) filho1[i] = pai2[i];
+      if (filho2[i] === null) filho2[i] = pai1[i];
+    }
+
+    return [filho1, filho2];
   }
 
   inicializarPopulacao() {
@@ -74,14 +150,55 @@ class AlgoritmoGenetico {
     }
   }
 
-  selecionarPais() {
+  selecionarPorTorneio(tamanhoTorneio = 3) {
+    // Seleciona um conjunto aleatório de indivíduos para o torneio
     const torneio = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < tamanhoTorneio; i++) {
       torneio.push(
         this.populacao[Math.floor(Math.random() * this.tamanhoPopulacao)]
       );
     }
+
+    // Retorna o melhor indivíduo do torneio (menor aptidão)
     return torneio.sort((a, b) => a.aptidao - b.aptidao)[0];
+  }
+
+  selecionarPorRoleta() {
+    const aptidoesInvertidas = this.populacao.map(
+      (individuo) => 1 / (1 + individuo.aptidao)
+    ); // Inverte aptidões para indivíduos menos aptos não dominarem
+    const somaTotal = aptidoesInvertidas.reduce(
+      (soma, valor) => soma + valor,
+      0
+    );
+
+    const probabilidadesAcumuladas = [];
+    let acumulador = 0;
+
+    // Calcula as probabilidades acumuladas
+    for (let aptidao of aptidoesInvertidas) {
+      acumulador += aptidao / somaTotal;
+      probabilidadesAcumuladas.push(acumulador);
+    }
+
+    // Seleciona um indivíduo com base na roleta
+    const roleta = Math.random();
+    for (let i = 0; i < probabilidadesAcumuladas.length; i++) {
+      if (roleta <= probabilidadesAcumuladas[i]) {
+        return this.populacao[i];
+      }
+    }
+  }
+
+  selecionarPais() {
+    if (this.metodoSelecao === "torneio") {
+      return this.selecionarPorTorneio();
+    } else if (this.metodoSelecao === "roleta") {
+      return this.selecionarPorRoleta();
+    } else {
+      console.error("Método de seleção inválido:", this.metodoSelecao);
+      throw new Error("Método de seleção inválido.");
+    }
   }
 
   cruzar(pai1, pai2) {
@@ -90,7 +207,6 @@ class AlgoritmoGenetico {
     } else if (this.metodoCrossover === "ciclico") {
       return this.ciclico(pai1, pai2);
     }
-    // Corte único (padrão)
     const pontoCorte = Math.floor(Math.random() * pai1.length);
     return [
       pai1.slice(0, pontoCorte).concat(pai2.slice(pontoCorte)),
@@ -109,9 +225,28 @@ class AlgoritmoGenetico {
   }
 
   reinserirPopulacao(novaPopulacao) {
-    this.populacao = novaPopulacao
-      .sort((a, b) => a.aptidao - b.aptidao)
-      .slice(0, this.tamanhoPopulacao);
+    if (this.metodoReinsercao === "elitismo") {
+      const elite = this.populacao
+        .sort((a, b) => a.aptidao - b.aptidao)
+        .slice(0, Math.ceil(this.tamanhoPopulacao * 0.2));
+      novaPopulacao = novaPopulacao
+        .sort((a, b) => a.aptidao - b.aptidao)
+        .slice(0, this.tamanhoPopulacao - elite.length)
+        .concat(elite);
+    } else {
+      novaPopulacao = novaPopulacao
+        .sort((a, b) => a.aptidao - b.aptidao)
+        .slice(0, this.tamanhoPopulacao);
+    }
+    this.populacao = novaPopulacao;
+  }
+
+  logIteracao(geracao, melhorIndividuo) {
+    this.logs.push({
+      geracao,
+      melhorIndividuo: melhorIndividuo.individuo.join(", "),
+      aptidao: melhorIndividuo.aptidao,
+    });
   }
 
   executar() {
