@@ -5,10 +5,11 @@ class AlgoritmoGenetico {
     this.populacao = [];
     this.problema = problema;
     this.letras = [...new Set(problema.replace(/[^A-Z]/g, "").split(""))];
-    this.taxaCrossover = 0.8; // Taxa padrão
-    this.taxaMutacao = 0.1; // Taxa padrão
-    this.metodoCrossover = "corte"; // Padrão: corte único
-    this.metodoReinsercao = "ordenada"; // Padrão: ordenada
+    this.taxaCrossover = 0.8;
+    this.taxaMutacao = 0.1;
+    this.metodoCrossover = "pmx";
+    this.metodoReinsercao = "ordenada";
+    this.metodoSelecao = "torneio";
     this.logs = [];
   }
 
@@ -28,11 +29,18 @@ class AlgoritmoGenetico {
         return map;
       }, {});
 
+      // Validação: Primeiras letras de cada palavra não podem ser 0
+      const palavras = this.problema.split(/[^A-Z]/).filter(Boolean);
+      const primeirasLetras = palavras.map((palavra) => palavra[0]);
+      for (let letra of primeirasLetras) {
+        if (mapeamento[letra] === 0) return Infinity;
+      }
+
       const calcularLado = (lado) =>
         lado.match(/[A-Z]+/g).reduce(
           (soma, palavra) =>
             soma +
-            Number(
+            parseInt(
               palavra
                 .split("")
                 .map((l) => mapeamento[l])
@@ -43,7 +51,7 @@ class AlgoritmoGenetico {
 
       const [ladoEsquerdo, ladoDireito] = this.problema.split("=");
       const valorEsquerdo = calcularLado(ladoEsquerdo);
-      const valorDireito = Number(
+      const valorDireito = parseInt(
         ladoDireito
           .split("")
           .map((l) => mapeamento[l])
@@ -242,27 +250,37 @@ class AlgoritmoGenetico {
   }
 
   logIteracao(geracao, melhorIndividuo) {
+    const mapeamento = this.letras.reduce((map, letra, i) => {
+      map[letra] = melhorIndividuo.individuo[i];
+      return map;
+    }, {});
+
     this.logs.push({
       geracao,
       melhorIndividuo: melhorIndividuo.individuo.join(", "),
       aptidao: melhorIndividuo.aptidao,
+      mapeamento,
     });
   }
 
   executar() {
     this.inicializarPopulacao();
+
     for (let geracao = 0; geracao < this.geracoes; geracao++) {
       this.populacao.sort((a, b) => a.aptidao - b.aptidao);
       const novaPopulacao = [];
       while (novaPopulacao.length < this.tamanhoPopulacao) {
         const pai1 = this.selecionarPais().individuo;
         const pai2 = this.selecionarPais().individuo;
+
         const [filho1, filho2] =
           Math.random() < this.taxaCrossover
             ? this.cruzar(pai1, pai2)
             : [pai1, pai2];
+
         this.mutar(filho1);
         this.mutar(filho2);
+
         novaPopulacao.push({
           individuo: filho1,
           aptidao: this.calcularAptidao(filho1),
@@ -272,11 +290,92 @@ class AlgoritmoGenetico {
           aptidao: this.calcularAptidao(filho2),
         });
       }
+
       this.reinserirPopulacao(novaPopulacao);
       this.logIteracao(geracao, this.populacao[0]);
+
     }
-    return this.populacao[0];
+
+    const melhorIndividuo = this.populacao[0];
+    const mapeamento = this.letras.reduce((map, letra, i) => {
+      map[letra] = melhorIndividuo.individuo[i];
+      return map;
+    }, {});
+
+    return { melhorIndividuo, mapeamento };
   }
+}
+
+function atualizarLogs(mensagem) {
+  const logDetalhes = document.getElementById("logDetalhes");
+  logDetalhes.textContent += mensagem + "\n";
+  logDetalhes.scrollTop = logDetalhes.scrollHeight; // Rola automaticamente para o final dos logs
+}
+
+// Função para automatizar as execuções com 24 combinações
+async function executarCombinacoes() {
+  const configuracoes = [
+    { crossover: "pmx", selecao: "torneio", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.05 },
+    { crossover: "pmx", selecao: "torneio", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.1 },
+    { crossover: "pmx", selecao: "torneio", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.05 },
+    { crossover: "pmx", selecao: "torneio", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.1 },
+    { crossover: "pmx", selecao: "roleta", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.05 },
+    { crossover: "pmx", selecao: "roleta", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.1 },
+    { crossover: "pmx", selecao: "roleta", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.05 },
+    { crossover: "pmx", selecao: "roleta", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.1 },
+    { crossover: "ciclico", selecao: "torneio", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.05 },
+    { crossover: "ciclico", selecao: "torneio", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.1 },
+    { crossover: "ciclico", selecao: "torneio", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.05 },
+    { crossover: "ciclico", selecao: "torneio", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.1 },
+    { crossover: "ciclico", selecao: "roleta", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.05 },
+    { crossover: "ciclico", selecao: "roleta", reinsercao: "ordenada", crossoverTaxa: 0.6, mutacaoTaxa: 0.1 },
+    { crossover: "ciclico", selecao: "roleta", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.05 },
+    { crossover: "ciclico", selecao: "roleta", reinsercao: "elitismo", crossoverTaxa: 0.8, mutacaoTaxa: 0.1 }
+  ];
+
+  const problema = "SEND+MORE=MONEY";
+
+  let resultados = "Problema,Configuração,Taxa Crossover,Taxa Mutação,Convergência (%),Tempo Médio (s)\n";
+
+  for (const config of configuracoes) {
+    const convergencias = [];
+    const inicio = performance.now();
+
+    for (let i = 0; i < 1000; i++) { // Executa 1000 vezes para cada configuração
+      const ag = new AlgoritmoGenetico(100, 50, problema);
+      ag.metodoCrossover = config.crossover;
+      ag.metodoSelecao = config.selecao;
+      ag.metodoReinsercao = config.reinsercao;
+      ag.taxaCrossover = config.crossoverTaxa;
+      ag.taxaMutacao = config.mutacaoTaxa;
+
+      const resultado = ag.executar();
+      if (resultado.aptidao === 0) convergencias.push(1);
+    }
+
+    const fim = performance.now();
+    const convergenciaPercentual = (convergencias.length / 1000) * 100;
+    const tempoMedio = ((fim - inicio) / 1000).toFixed(2);
+
+    // Adiciona o resultado ao CSV
+    resultados += `${problema},"Crossover(${config.crossover}), Seleção(${config.selecao}), Reinserção(${config.reinsercao})",${config.crossoverTaxa},${config.mutacaoTaxa},${convergenciaPercentual},${tempoMedio}\n`;
+  }
+
+  // Gera o arquivo CSV
+  gerarArquivoCSV(resultados, "resultados_AG.csv");
+}
+
+// Função para gerar e baixar o arquivo CSV
+function gerarArquivoCSV(conteudo, nomeArquivo) {
+  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", nomeArquivo);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 document.getElementById("resolver").addEventListener("click", () => {
@@ -296,12 +395,18 @@ document.getElementById("resolver").addEventListener("click", () => {
   ag.metodoSelecao = selecao;
   ag.metodoReinsercao = reinsercao;
 
-  const melhor = ag.executar();
+  const { melhorIndividuo, mapeamento } = ag.executar();
 
   const solucao = document.getElementById("solucao");
-  solucao.innerHTML = `Melhor solução encontrada:<br>
-    Indivíduo: ${melhor.individuo.join(", ")}<br>
-    Aptidão: ${melhor.aptidao}`;
+  solucao.innerHTML = `
+    <strong>Melhor solução encontrada:</strong><br>
+    Indivíduo: ${melhorIndividuo.individuo.join(", ")}<br>
+    Aptidão: ${melhorIndividuo.aptidao}<br>
+    <strong>Mapeamento de letras:</strong><br>
+    ${Object.entries(mapeamento)
+      .map(([letra, numero]) => `${letra}: ${numero}`)
+      .join(", ")}
+  `;
 
   const logDetalhes = document.getElementById("logDetalhes");
   logDetalhes.textContent = ag.logs
