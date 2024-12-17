@@ -14,7 +14,17 @@
         <select id="problema">
           <option value="SEND+MORE=MONEY">SEND + MORE = MONEY</option>
           <option value="CROSS+ROADS=DANGER">CROSS + ROADS = DANGER</option>
+          <option value="DONALD+GERALD=ROBERT">DONALD + GERALD = ROBERT</option>
+          <option value="EAT+THAT=APPLE">EAT + THAT = APPLE</option>
+          <option value="COCA+COLA=OASIS">COCA + COLA = OASIS</option>
         </select>
+
+        <div id="customProblemContainer" style="display: none;">
+          <label for="customProblema">Problema Personalizado:</label>
+          <input id="customProblema" type="text" placeholder="Ex: AGUA+FRIO=GELO" />
+        </div>
+      
+        <button id="toggleCustomProblema">Usar problema personalizado</button>
 
         <label for="taxaCrossover">Taxa de Crossover (%):</label>
         <input id="taxaCrossover" type="number" min="0" max="100" value="80" />
@@ -42,9 +52,8 @@
         </select>
 
         <button id="resolver">Resolver</button>
-        <div id="melhoresResultados"></div>
-        <div id="progresso" style="margin-top: 20px; font-weight: bold;"></div>
-
+        <button id="gerarCsv">Gerar CSV</button>
+        <div id="progresso" style="margin-top: 20px; font-weight: bold"></div>
       </div>
       <div id="resultado">
         <h2>Resultado:</h2>
