@@ -1,0 +1,6 @@
+https://youtu.be/xtrOKE6krgw
+
+comando para rodar o calculo de percentual
+
+npm install xlsx
+node calcularAptidao.js
